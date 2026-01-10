@@ -34,5 +34,9 @@ export class UpdateTransactionDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  @IsUUID()
+  @IsOptional()
+  cardId?: string;
 }
 

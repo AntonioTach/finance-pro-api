@@ -2,13 +2,14 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
 import { DATABASE_PROVIDER } from '../config/database.provider';
 import { Sequelize } from 'sequelize-typescript';
-import { Transaction } from './models/transaction.model';
+import { Transaction, TransactionType } from './models/transaction.model';
 import { Category } from '../categories/models/category.model';
-import { User } from '../users/models/user.model';
+import { Card } from '../cards/models/card.model';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { FilterTransactionDto } from './dto/filter-transaction.dto';
@@ -26,6 +27,14 @@ export class TransactionsService {
     createTransactionDto: CreateTransactionDto,
   ): Promise<Transaction> {
     await this.validateCategoryOwnership(userId, createTransactionDto.categoryId);
+
+    // Validate card if provided
+    if (createTransactionDto.cardId) {
+      await this.validateCardOwnership(userId, createTransactionDto.cardId);
+      this.validateCardTransactionType(createTransactionDto.type);
+    } else {
+      this.validateNonCardTransactionType(createTransactionDto.type);
+    }
 
     return Transaction.create({
       ...createTransactionDto,
@@ -65,6 +74,10 @@ export class TransactionsService {
           model: Category,
           as: 'category',
         },
+        {
+          model: Card,
+          as: 'card',
+        },
       ],
       order: [['date', 'DESC']],
     });
@@ -77,6 +90,10 @@ export class TransactionsService {
         {
           model: Category,
           as: 'category',
+        },
+        {
+          model: Card,
+          as: 'card',
         },
       ],
     });
@@ -100,6 +117,22 @@ export class TransactionsService {
         userId,
         updateTransactionDto.categoryId,
       );
+    }
+
+    if (updateTransactionDto.cardId) {
+      await this.validateCardOwnership(userId, updateTransactionDto.cardId);
+    }
+
+    // Validate transaction type consistency
+    const newType = updateTransactionDto.type || transaction.type;
+    const newCardId = updateTransactionDto.cardId !== undefined 
+      ? updateTransactionDto.cardId 
+      : transaction.cardId;
+
+    if (newCardId) {
+      this.validateCardTransactionType(newType);
+    } else {
+      this.validateNonCardTransactionType(newType);
     }
 
     if (updateTransactionDto.date) {
@@ -150,6 +183,37 @@ export class TransactionsService {
     }
     if (category.userId !== userId) {
       throw new ForbiddenException('Category does not belong to user');
+    }
+  }
+
+  private async validateCardOwnership(
+    userId: string,
+    cardId: string,
+  ): Promise<void> {
+    const card = await Card.findByPk(cardId);
+    if (!card) {
+      throw new NotFoundException('Card not found');
+    }
+    if (card.userId !== userId) {
+      throw new ForbiddenException('Card does not belong to user');
+    }
+  }
+
+  private validateCardTransactionType(type: TransactionType): void {
+    const validCardTypes = [TransactionType.CARD_PURCHASE, TransactionType.CARD_PAYMENT];
+    if (!validCardTypes.includes(type)) {
+      throw new BadRequestException(
+        'Card transactions must be of type CARD_PURCHASE or CARD_PAYMENT',
+      );
+    }
+  }
+
+  private validateNonCardTransactionType(type: TransactionType): void {
+    const validNonCardTypes = [TransactionType.INCOME, TransactionType.EXPENSE];
+    if (!validNonCardTypes.includes(type)) {
+      throw new BadRequestException(
+        'Non-card transactions must be of type INCOME or EXPENSE',
+      );
     }
   }
 }

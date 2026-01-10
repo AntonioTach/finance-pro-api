@@ -12,10 +12,13 @@ import {
 } from 'sequelize-typescript';
 import { User } from '../../users/models/user.model';
 import { Category } from '../../categories/models/category.model';
+import { Card } from '../../cards/models/card.model';
 
 export enum TransactionType {
   INCOME = 'income',
   EXPENSE = 'expense',
+  CARD_PURCHASE = 'card_purchase',
+  CARD_PAYMENT = 'card_payment',
 }
 
 @Table({
@@ -74,6 +77,14 @@ export class Transaction extends Model {
   })
   notes: string;
 
+  @ForeignKey(() => Card)
+  @Column({
+    type: DataType.UUID,
+    allowNull: true,
+    field: 'card_id',
+  })
+  cardId: string;
+
   @CreatedAt
   @Column({
     type: DataType.DATE,
@@ -93,5 +104,8 @@ export class Transaction extends Model {
 
   @BelongsTo(() => Category)
   category: Category;
+
+  @BelongsTo(() => Card)
+  card: Card;
 }
 

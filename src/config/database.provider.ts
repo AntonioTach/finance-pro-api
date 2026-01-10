@@ -6,6 +6,7 @@ import { User } from '../users/models/user.model';
 import { Transaction } from '../transactions/models/transaction.model';
 import { Category } from '../categories/models/category.model';
 import { Budget } from '../budgets/models/budget.model';
+import { Card } from '../cards/models/card.model';
 
 export const DATABASE_PROVIDER = 'SEQUELIZE';
 
@@ -20,7 +21,7 @@ export const databaseProvider: Provider = {
       password: configService.get<string>('DATABASE_PASSWORD', 'postgres'),
       database: configService.get<string>('DATABASE_NAME', 'financepro'),
       logging: configService.get<string>('NODE_ENV') === 'development' ? console.log : false,
-      models: [User, Transaction, Category, Budget],
+      models: [User, Transaction, Category, Budget, Card],
       define: {
         timestamps: true,
         underscored: true,

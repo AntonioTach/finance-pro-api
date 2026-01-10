@@ -35,5 +35,9 @@ export class CreateTransactionDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  @IsUUID()
+  @IsOptional()
+  cardId?: string;
 }
 
