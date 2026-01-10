@@ -33,6 +33,11 @@ export class CategoriesController {
     return this.categoriesService.findAll(user.id);
   }
 
+  @Post('sync')
+  syncDefaults(@GetUser() user: User) {
+    return this.categoriesService.syncDefaultCategories(user.id);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string, @GetUser() user: User) {
     return this.categoriesService.findOne(id, user.id);

@@ -77,6 +77,7 @@ export class UsersService {
     transaction: any,
   ): Promise<void> {
     const defaultCategories = [
+      // Expense categories
       { name: 'Alimentación', type: CategoryType.EXPENSE, color: '#FF6B6B', icon: '🍔' },
       { name: 'Transporte', type: CategoryType.EXPENSE, color: '#4ECDC4', icon: '🚗' },
       { name: 'Servicios', type: CategoryType.EXPENSE, color: '#45B7D1', icon: '💡' },
@@ -84,11 +85,27 @@ export class UsersService {
       { name: 'Salud', type: CategoryType.EXPENSE, color: '#FFEAA7', icon: '⚕️' },
       { name: 'Educación', type: CategoryType.EXPENSE, color: '#DFE6E9', icon: '📚' },
       { name: 'Ropa', type: CategoryType.EXPENSE, color: '#A29BFE', icon: '👔' },
-      { name: 'Otros', type: CategoryType.EXPENSE, color: '#B2BEC3', icon: '📦' },
+      { name: 'Hogar', type: CategoryType.EXPENSE, color: '#E17055', icon: '🏠' },
+      { name: 'Mascotas', type: CategoryType.EXPENSE, color: '#FDCB6E', icon: '🐾' },
+      { name: 'Viajes', type: CategoryType.EXPENSE, color: '#00CEC9', icon: '✈️' },
+      { name: 'Suscripciones', type: CategoryType.EXPENSE, color: '#6C5CE7', icon: '📺' },
+      { name: 'Restaurantes', type: CategoryType.EXPENSE, color: '#E84393', icon: '🍽️' },
+      { name: 'Gimnasio', type: CategoryType.EXPENSE, color: '#00B894', icon: '💪' },
+      { name: 'Tecnología', type: CategoryType.EXPENSE, color: '#0984E3', icon: '📱' },
+      { name: 'Regalos', type: CategoryType.EXPENSE, color: '#FD79A8', icon: '🎁' },
+      { name: 'Seguros', type: CategoryType.EXPENSE, color: '#636E72', icon: '🛡️' },
+      { name: 'Otros Gastos', type: CategoryType.EXPENSE, color: '#B2BEC3', icon: '📦' },
+      // Income categories
       { name: 'Salario', type: CategoryType.INCOME, color: '#00B894', icon: '💼' },
+      { name: 'Trabajo', type: CategoryType.INCOME, color: '#0984E3', icon: '🏢' },
       { name: 'Freelance', type: CategoryType.INCOME, color: '#6C5CE7', icon: '💻' },
       { name: 'Inversiones', type: CategoryType.INCOME, color: '#FDCB6E', icon: '📈' },
-      { name: 'Otros', type: CategoryType.INCOME, color: '#74B9FF', icon: '💰' },
+      { name: 'Bonos', type: CategoryType.INCOME, color: '#00CEC9', icon: '🎯' },
+      { name: 'Ventas', type: CategoryType.INCOME, color: '#E17055', icon: '🛒' },
+      { name: 'Alquiler', type: CategoryType.INCOME, color: '#A29BFE', icon: '🏘️' },
+      { name: 'Reembolsos', type: CategoryType.INCOME, color: '#55EFC4', icon: '↩️' },
+      { name: 'Regalos Recibidos', type: CategoryType.INCOME, color: '#FD79A8', icon: '🎀' },
+      { name: 'Otros Ingresos', type: CategoryType.INCOME, color: '#74B9FF', icon: '💰' },
     ];
 
     await Category.bulkCreate(
