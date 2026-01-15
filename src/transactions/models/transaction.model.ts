@@ -9,6 +9,7 @@ import {
   UpdatedAt,
   ForeignKey,
   BelongsTo,
+  HasMany,
 } from 'sequelize-typescript';
 import { User } from '../../users/models/user.model';
 import { Category } from '../../categories/models/category.model';
@@ -85,6 +86,28 @@ export class Transaction extends Model {
   })
   cardId: string;
 
+  @Column({
+    type: DataType.INTEGER,
+    allowNull: true,
+    field: 'installment_months',
+  })
+  installmentMonths: number;
+
+  @Column({
+    type: DataType.INTEGER,
+    allowNull: true,
+    field: 'installment_current',
+  })
+  installmentCurrent: number;
+
+  @ForeignKey(() => Transaction)
+  @Column({
+    type: DataType.UUID,
+    allowNull: true,
+    field: 'parent_transaction_id',
+  })
+  parentTransactionId: string;
+
   @CreatedAt
   @Column({
     type: DataType.DATE,
@@ -107,5 +130,11 @@ export class Transaction extends Model {
 
   @BelongsTo(() => Card)
   card: Card;
+
+  @BelongsTo(() => Transaction, 'parentTransactionId')
+  parentTransaction: Transaction;
+
+  @HasMany(() => Transaction, 'parentTransactionId')
+  installments: Transaction[];
 }
 

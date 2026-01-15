@@ -58,5 +58,24 @@ export class TransactionsController {
   remove(@Param('id') id: string, @GetUser() user: User) {
     return this.transactionsService.remove(id, user.id);
   }
+
+  @Get(':id/msi-group')
+  getMsiGroup(@Param('id') id: string, @GetUser() user: User) {
+    return this.transactionsService.getMsiGroup(id, user.id);
+  }
+
+  @Post(':id/cancel-msi')
+  cancelMsi(@Param('id') id: string, @GetUser() user: User) {
+    return this.transactionsService.cancelMsi(id, user.id);
+  }
+
+  @Patch(':id/msi-group')
+  updateMsiGroup(
+    @Param('id') id: string,
+    @GetUser() user: User,
+    @Body() updates: { description?: string; notes?: string; categoryId?: string },
+  ) {
+    return this.transactionsService.updateMsiGroup(id, user.id, updates);
+  }
 }
 

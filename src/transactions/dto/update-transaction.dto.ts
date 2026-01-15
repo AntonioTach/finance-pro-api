@@ -5,6 +5,7 @@ import {
   IsString,
   IsUUID,
   IsDateString,
+  IsIn,
   Min,
 } from 'class-validator';
 import { TransactionType } from '../models/transaction.model';
@@ -38,5 +39,9 @@ export class UpdateTransactionDto {
   @IsUUID()
   @IsOptional()
   cardId?: string;
+
+  @IsOptional()
+  @IsIn([3, 6, 9, 12, 15, 18, 24])
+  installmentMonths?: number;
 }
 
