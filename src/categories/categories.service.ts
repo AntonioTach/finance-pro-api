@@ -30,6 +30,7 @@ export class CategoriesService {
     { name: 'Tecnología', type: CategoryType.EXPENSE, color: '#0984E3', icon: '📱' },
     { name: 'Regalos', type: CategoryType.EXPENSE, color: '#FD79A8', icon: '🎁' },
     { name: 'Seguros', type: CategoryType.EXPENSE, color: '#636E72', icon: '🛡️' },
+    { name: 'Pagos de Tarjeta', type: CategoryType.EXPENSE, color: '#3B82F6', icon: '💳' },
     { name: 'Otros Gastos', type: CategoryType.EXPENSE, color: '#B2BEC3', icon: '📦' },
     // Income categories
     { name: 'Salario', type: CategoryType.INCOME, color: '#00B894', icon: '💼' },

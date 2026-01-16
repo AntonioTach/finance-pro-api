@@ -43,7 +43,7 @@ export class ReportsService {
       .reduce((sum, t) => sum + Number(t.amount), 0);
 
     const expense = transactions
-      .filter((t) => t.type === 'expense')
+      .filter((t) => t.type === 'expense' || t.type === 'card_payment')
       .reduce((sum, t) => sum + Number(t.amount), 0);
 
     const balance = income - expense;
@@ -74,7 +74,7 @@ export class ReportsService {
     const results = await Transaction.findAll({
       where: {
         userId,
-        type: 'expense',
+        type: { [Op.in]: ['expense', 'card_payment'] },
         date: {
           [Op.between]: [startDate, endDate],
         },
@@ -153,7 +153,13 @@ export class ReportsService {
       if (!trends[month]) {
         trends[month] = { income: 0, expense: 0 };
       }
-      trends[month][result.type] = Number(result.total);
+      
+      // Treat card_payment as expense
+      if (result.type === 'income') {
+        trends[month].income += Number(result.total);
+      } else if (result.type === 'expense' || result.type === 'card_payment') {
+        trends[month].expense += Number(result.total);
+      }
     });
 
     return Object.keys(trends).map((month) => ({
