@@ -14,6 +14,8 @@ export const DATABASE_PROVIDER = 'SEQUELIZE';
 export const databaseProvider: Provider = {
   provide: DATABASE_PROVIDER,
   useFactory: async (configService: ConfigService) => {
+    const isProduction = configService.get<string>('NODE_ENV') === 'production';
+
     const sequelize = new Sequelize({
       dialect: 'postgres' as Dialect,
       host: configService.get<string>('DATABASE_HOST', 'localhost'),
@@ -21,7 +23,11 @@ export const databaseProvider: Provider = {
       username: configService.get<string>('DATABASE_USER', 'postgres'),
       password: configService.get<string>('DATABASE_PASSWORD', 'postgres'),
       database: configService.get<string>('DATABASE_NAME', 'financepro'),
-      logging: configService.get<string>('NODE_ENV') === 'development' ? console.log : false,
+      logging: isProduction ? false : console.log,
+      dialectOptions: isProduction
+        ? { ssl: { require: true, rejectUnauthorized: false } }
+        : {},
+      pool: { max: 5, min: 0, acquire: 30000, idle: 10000 },
       models: [User, Transaction, Category, Budget, Card, Subscription],
       define: {
         timestamps: true,
@@ -32,13 +38,9 @@ export const databaseProvider: Provider = {
     try {
       await sequelize.authenticate();
       console.log('Database connection established successfully.');
-      
-      if (configService.get<string>('NODE_ENV') === 'development') {
-        await sequelize.sync({ alter: true });
-        console.log('Database synchronized.');
-      }
     } catch (error) {
       console.error('Unable to connect to the database:', error);
+      throw error;
     }
 
     return sequelize;
