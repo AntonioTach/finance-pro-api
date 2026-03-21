@@ -20,8 +20,11 @@ export const getJwtSecret = (configService?: ConfigService): string => {
   
   // Always ensure we have a valid secret
   if (!secret || typeof secret !== 'string' || secret.trim() === '') {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('JWT_SECRET must be set in production. Set it in your environment variables.');
+    }
     secret = 'default-secret-change-in-production-min-32-chars-for-development-only';
-    console.warn('⚠️  WARNING: Using default JWT_SECRET. Please set JWT_SECRET in your .env file for production!');
+    console.warn('WARNING: Using default JWT_SECRET. Set JWT_SECRET in your .env file.');
   }
 
   const finalSecret = secret.trim();

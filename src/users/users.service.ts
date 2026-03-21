@@ -64,6 +64,14 @@ export class UsersService {
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
     const user = await this.findOne(id);
+
+    if (updateUserDto.email && updateUserDto.email !== user.email) {
+      const existing = await User.findOne({ where: { email: updateUserDto.email } });
+      if (existing) {
+        throw new ConflictException('Email already in use');
+      }
+    }
+
     await user.update(updateUserDto);
     return user;
   }

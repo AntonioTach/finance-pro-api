@@ -32,8 +32,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
         error = responseObj.error || error;
       }
     } else if (exception instanceof Error) {
-      message = exception.message;
-      error = exception.message;
+      console.error('[Unhandled Error]', exception);
+      // Do not expose internal error details to clients
     }
 
     const apiResponse: ApiResponse = {

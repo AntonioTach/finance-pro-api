@@ -13,6 +13,7 @@ import { TransactionsService } from './transactions.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { FilterTransactionDto } from './dto/filter-transaction.dto';
+import { UpdateMsiGroupDto } from './dto/update-msi-group.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../common/decorators/get-user.decorator';
 import { User } from '../users/models/user.model';
@@ -73,7 +74,7 @@ export class TransactionsController {
   updateMsiGroup(
     @Param('id') id: string,
     @GetUser() user: User,
-    @Body() updates: { description?: string; notes?: string; categoryId?: string },
+    @Body() updates: UpdateMsiGroupDto,
   ) {
     return this.transactionsService.updateMsiGroup(id, user.id, updates);
   }

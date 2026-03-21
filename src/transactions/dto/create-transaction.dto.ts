@@ -7,6 +7,7 @@ import {
   IsDateString,
   IsOptional,
   IsIn,
+  MaxLength,
   Min,
 } from 'class-validator';
 import { TransactionType } from '../models/transaction.model';
@@ -27,6 +28,7 @@ export class CreateTransactionDto {
 
   @IsString()
   @IsNotEmpty()
+  @MaxLength(255)
   description: string;
 
   @IsDateString()
@@ -35,6 +37,7 @@ export class CreateTransactionDto {
 
   @IsString()
   @IsOptional()
+  @MaxLength(1000)
   notes?: string;
 
   @IsUUID()
