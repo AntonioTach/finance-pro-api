@@ -16,6 +16,7 @@ import { ReportsModule } from './reports/reports.module';
 import { CardsModule } from './cards/cards.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { CalendarModule } from './calendar/calendar.module';
+import { DebtsModule } from './debts/debts.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { CalendarModule } from './calendar/calendar.module';
     CardsModule,
     SubscriptionsModule,
     CalendarModule,
+    DebtsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
