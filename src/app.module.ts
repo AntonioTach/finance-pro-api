@@ -25,7 +25,7 @@ import { DebtsModule } from './debts/debts.module';
       load: [appConfig],
       envFilePath: ['.env.local', '.env'],
     }),
-    ThrottlerModule.forRoot([{ ttl: 60000, limit: 10 }]),
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 200 }]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: getJwtConfig,
