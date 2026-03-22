@@ -9,6 +9,7 @@ import { DATABASE_PROVIDER } from '../config/database.provider';
 import { Sequelize } from 'sequelize-typescript';
 import { Budget, BudgetPeriod } from './models/budget.model';
 import { BudgetAlert, BudgetAlertType } from './models/budget-alert.model';
+import { BudgetPeriodSnapshot } from './models/budget-period-snapshot.model';
 import { Category } from '../categories/models/category.model';
 import { Transaction } from '../transactions/models/transaction.model';
 import { CreateBudgetDto } from './dto/create-budget.dto';
@@ -202,6 +203,12 @@ export class BudgetsService {
 
   async getProgress(id: string, userId: string): Promise<any> {
     const budget = await this.findOne(id, userId);
+
+    // Lazy renewal: checks if the stored startDate is behind the current period.
+    // This is a pure date comparison (no DB query). Only writes to DB when
+    // the period actually changed AND autoRenew is enabled — at most once per period.
+    await this.maybeRenewBudget(budget);
+
     const period = getActivePeriod(budget);
     const now    = new Date();
 
@@ -333,6 +340,17 @@ export class BudgetsService {
     }));
   }
 
+  // ── History (period snapshots) ───────────────────────────────────────────
+
+  async getHistory(id: string, userId: string): Promise<BudgetPeriodSnapshot[]> {
+    await this.findOne(id, userId); // ownership check
+    return BudgetPeriodSnapshot.findAll({
+      where: { budgetId: id },
+      order: [['periodStart', 'DESC']],
+      limit: 12, // last 12 periods
+    });
+  }
+
   // ── Transactions of the active period ────────────────────────────────────
 
   async getPeriodTransactions(id: string, userId: string): Promise<any> {
@@ -391,6 +409,131 @@ export class BudgetsService {
       const periodKey = getActivePeriod(budget).key;
 
       await this.maybeCreateAlerts(budget, userId, periodKey, percentage, alertThreshold, isExceeded);
+    }
+  }
+
+  // ── Lazy renewal ─────────────────────────────────────────────────────────
+
+  /**
+   * Checks (via pure date math, zero DB queries) whether the budget's stored
+   * startDate is behind the current period. If so — and autoRenew is enabled —
+   * advances the period exactly once and persists the update.
+   *
+   * Only applies to: WEEKLY, MONTHLY, YEARLY.
+   * BIWEEKLY and CUSTOM use startDate as an anchor and never auto-advance.
+   *
+   * ── HOW TO TEST THIS ────────────────────────────────────────────────────
+   * 1. Create a monthly budget with startDate = first day of LAST month
+   *    e.g. if today is 2026-04-15, set startDate = '2026-03-01'
+   * 2. Call GET /api/budgets/:id/progress (or load the dashboard)
+   * 3. Expected: budget.startDate is updated to '2026-04-01', a 'renewal'
+   *    alert is created, and rolloverAmount is set if rolloverEnabled=true
+   * 4. Call the same endpoint again — should NOT create another alert or
+   *    update startDate (idempotent: budget.startDate is now in the current period)
+   *
+   * To test rollover:
+   *   - Set rolloverEnabled=true on the budget before the test
+   *   - Add some expenses below the limit so there's a surplus (e.g. spent $300 of $500)
+   *   - Trigger renewal → rolloverAmount should be +$200 on the new period
+   * ────────────────────────────────────────────────────────────────────────
+   */
+  private async maybeRenewBudget(budget: Budget): Promise<void> {
+    // BIWEEKLY and CUSTOM use startDate as an anchor — never auto-advance
+    if (
+      budget.period === BudgetPeriod.BIWEEKLY ||
+      budget.period === BudgetPeriod.CUSTOM   ||
+      !budget.autoRenew
+    ) return;
+
+    const now         = new Date();
+    const currentPeriodStart = this.getPeriodStart(budget.period, now);
+    const budgetStart        = new Date(budget.startDate);
+    budgetStart.setHours(0, 0, 0, 0);
+
+    // Pure date comparison — no DB touch if already in the current period
+    if (budgetStart.getTime() >= currentPeriodStart.getTime()) return;
+
+    // ── Period has changed: renew ────────────────────────────────────────
+
+    // Calculate spent amount of the period that just ended
+    const oldPeriod = getActivePeriod(budget, now);
+    const [expenseRows] = await Promise.all([
+      Transaction.findAll({
+        where: {
+          userId: budget.userId,
+          categoryId: budget.categoryId,
+          type: 'expense',
+          date: { [Op.between]: [oldPeriod.start, oldPeriod.end] },
+        },
+        attributes: [[this.sequelize.fn('SUM', this.sequelize.col('amount')), 'total']],
+        raw: true,
+      }),
+    ]);
+    const spentInOldPeriod = Number((expenseRows as any[])[0]?.total || 0);
+    const baseAmount       = Number(budget.amount);
+    const rolloverIn       = Number(budget.rolloverAmount || 0);
+    const surplus          = (baseAmount + rolloverIn) - spentInOldPeriod;
+    const maxRollover      = baseAmount * 2;
+    const rolloverOut      = budget.rolloverEnabled
+      ? Math.max(-maxRollover, Math.min(surplus, maxRollover))
+      : 0;
+
+    // ── Save snapshot of the period that just closed ─────────────────────
+    // Use upsert to handle the rare case where two requests arrive simultaneously
+    const periodStartStr = `${oldPeriod.start.getFullYear()}-${padded(oldPeriod.start.getMonth() + 1)}-${padded(oldPeriod.start.getDate())}`;
+    const periodEndStr   = `${oldPeriod.end.getFullYear()}-${padded(oldPeriod.end.getMonth() + 1)}-${padded(oldPeriod.end.getDate())}`;
+
+    try {
+      await BudgetPeriodSnapshot.findOrCreate({
+        where: { budgetId: budget.id, periodStart: periodStartStr },
+        defaults: {
+          userId:         budget.userId,
+          periodStart:    periodStartStr,
+          periodEnd:      periodEndStr,
+          budgetedAmount: baseAmount + rolloverIn,
+          spentAmount:    spentInOldPeriod,
+          rolloverIn,
+          rolloverOut,
+          closedAt:       now,
+        },
+      });
+    } catch {
+      // Snapshot already exists (race condition) — safe to ignore
+    }
+
+    // ── Advance startDate to the current period start ────────────────────
+    await budget.update({
+      startDate:      currentPeriodStart,
+      rolloverAmount: rolloverOut,
+    });
+
+    // Create renewal alert (deduplicated by periodKey in upsertAlert)
+    const newPeriodKey = getActivePeriod(budget, now).key;
+    const label = budget.name || (budget.category as any)?.name || 'presupuesto';
+    await this.upsertAlert(
+      budget.id,
+      budget.userId,
+      BudgetAlertType.RENEWAL,
+      newPeriodKey,
+      0,
+      `Tu presupuesto "${label}" se renovó automáticamente`,
+    );
+  }
+
+  /**
+   * Returns the canonical start-of-period date for the given period type and
+   * reference date. Used only for WEEKLY / MONTHLY / YEARLY renewal.
+   */
+  private getPeriodStart(period: BudgetPeriod, now: Date): Date {
+    switch (period) {
+      case BudgetPeriod.WEEKLY:
+        return startOfWeekMon(now);
+      case BudgetPeriod.MONTHLY:
+        return startOfMonth(now);
+      case BudgetPeriod.YEARLY:
+        return startOfYear(now);
+      default:
+        return now;
     }
   }
 

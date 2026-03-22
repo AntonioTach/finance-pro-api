@@ -72,6 +72,11 @@ export class BudgetsController {
     return this.budgetsService.getPeriodTransactions(id, user.id);
   }
 
+  @Get(':id/history')
+  getHistory(@Param('id') id: string, @GetUser() user: User) {
+    return this.budgetsService.getHistory(id, user.id);
+  }
+
   @Patch(':id')
   update(
     @Param('id') id: string,

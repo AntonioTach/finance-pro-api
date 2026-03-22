@@ -14,6 +14,7 @@ import {
 import { User } from '../../users/models/user.model';
 import { Category } from '../../categories/models/category.model';
 import { BudgetAlert } from './budget-alert.model';
+import { BudgetPeriodSnapshot } from './budget-period-snapshot.model';
 
 export enum BudgetPeriod {
   WEEKLY = 'weekly',
@@ -162,4 +163,7 @@ export class Budget extends Model {
 
   @HasMany(() => BudgetAlert)
   alerts: BudgetAlert[];
+
+  @HasMany(() => BudgetPeriodSnapshot)
+  snapshots: BudgetPeriodSnapshot[];
 }
