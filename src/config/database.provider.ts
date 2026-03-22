@@ -6,6 +6,7 @@ import { User } from '../users/models/user.model';
 import { Transaction } from '../transactions/models/transaction.model';
 import { Category } from '../categories/models/category.model';
 import { Budget } from '../budgets/models/budget.model';
+import { BudgetAlert } from '../budgets/models/budget-alert.model';
 import { Card } from '../cards/models/card.model';
 import { Subscription } from '../subscriptions/models/subscription.model';
 import { Debt } from '../debts/models/debt.model';
@@ -25,7 +26,7 @@ export const databaseProvider: Provider = {
           logging: false,
           dialectOptions: { ssl: { require: true, rejectUnauthorized: false } },
           pool: { max: 5, min: 0, acquire: 30000, idle: 10000 },
-          models: [User, Transaction, Category, Budget, Card, Subscription, Debt, DebtPayment],
+          models: [User, Transaction, Category, Budget, BudgetAlert, Card, Subscription, Debt, DebtPayment],
           define: { timestamps: true, underscored: true },
         })
       : new Sequelize({
@@ -37,7 +38,7 @@ export const databaseProvider: Provider = {
           database: configService.get<string>('DATABASE_NAME', 'financepro'),
           logging: isProduction ? false : console.log,
           pool: { max: 5, min: 0, acquire: 30000, idle: 10000 },
-          models: [User, Transaction, Category, Budget, Card, Subscription, Debt, DebtPayment],
+          models: [User, Transaction, Category, Budget, BudgetAlert, Card, Subscription, Debt, DebtPayment],
           define: { timestamps: true, underscored: true },
         });
 

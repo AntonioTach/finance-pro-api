@@ -20,14 +20,41 @@ import { User } from '../users/models/user.model';
 export class BudgetsController {
   constructor(private readonly budgetsService: BudgetsService) {}
 
+  // ── CRUD ──────────────────────────────────────────────────────────────────
+
   @Post()
-  create(@GetUser() user: User, @Body() createBudgetDto: CreateBudgetDto) {
-    return this.budgetsService.create(user.id, createBudgetDto);
+  create(@GetUser() user: User, @Body() dto: CreateBudgetDto) {
+    return this.budgetsService.create(user.id, dto);
   }
 
   @Get()
   findAll(@GetUser() user: User) {
     return this.budgetsService.findAll(user.id);
+  }
+
+  @Get('dashboard')
+  getDashboard(@GetUser() user: User) {
+    return this.budgetsService.getDashboard(user.id);
+  }
+
+  @Get('suggestions')
+  getSuggestions(@GetUser() user: User) {
+    return this.budgetsService.getSuggestions(user.id);
+  }
+
+  @Get('alerts')
+  getAlerts(@GetUser() user: User) {
+    return this.budgetsService.getAlerts(user.id);
+  }
+
+  @Patch('alerts/read-all')
+  markAllAlertsRead(@GetUser() user: User) {
+    return this.budgetsService.markAllAlertsRead(user.id);
+  }
+
+  @Patch('alerts/:alertId/read')
+  markAlertRead(@Param('alertId') alertId: string, @GetUser() user: User) {
+    return this.budgetsService.markAlertRead(alertId, user.id);
   }
 
   @Get(':id')
@@ -40,13 +67,18 @@ export class BudgetsController {
     return this.budgetsService.getProgress(id, user.id);
   }
 
+  @Get(':id/transactions')
+  getPeriodTransactions(@Param('id') id: string, @GetUser() user: User) {
+    return this.budgetsService.getPeriodTransactions(id, user.id);
+  }
+
   @Patch(':id')
   update(
     @Param('id') id: string,
     @GetUser() user: User,
-    @Body() updateBudgetDto: UpdateBudgetDto,
+    @Body() dto: UpdateBudgetDto,
   ) {
-    return this.budgetsService.update(id, user.id, updateBudgetDto);
+    return this.budgetsService.update(id, user.id, dto);
   }
 
   @Delete(':id')
@@ -54,4 +86,3 @@ export class BudgetsController {
     return this.budgetsService.remove(id, user.id);
   }
 }
-

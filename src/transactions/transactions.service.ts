@@ -13,6 +13,7 @@ import { Card, CardType } from '../cards/models/card.model';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { FilterTransactionDto } from './dto/filter-transaction.dto';
+import { BudgetsService } from '../budgets/budgets.service';
 import { Op } from 'sequelize';
 
 @Injectable()
@@ -20,6 +21,7 @@ export class TransactionsService {
   constructor(
     @Inject(DATABASE_PROVIDER)
     private readonly sequelize: Sequelize,
+    private readonly budgetsService: BudgetsService,
   ) {}
 
   async create(
@@ -54,6 +56,11 @@ export class TransactionsService {
     if (createTransactionDto.installmentMonths && card) {
       await this.generateInstallments(transaction, card, userId, createTransactionDto);
     }
+
+    // Check budget alerts asynchronously (non-blocking)
+    this.budgetsService
+      .checkAlerts(userId, createTransactionDto.categoryId)
+      .catch(() => {/* silently ignore alert errors */});
 
     return transaction;
   }
@@ -240,7 +247,13 @@ export class TransactionsService {
     }
 
     await transaction.update(updateTransactionDto);
-    return this.findOne(id, userId);
+    const updated = await this.findOne(id, userId);
+
+    this.budgetsService
+      .checkAlerts(userId, updated.categoryId)
+      .catch(() => {/* silently ignore alert errors */});
+
+    return updated;
   }
 
   async remove(id: string, userId: string): Promise<void> {
@@ -256,7 +269,12 @@ export class TransactionsService {
       });
     }
     
+    const categoryId = transaction.categoryId;
     await transaction.destroy();
+
+    this.budgetsService
+      .checkAlerts(userId, categoryId)
+      .catch(() => {/* silently ignore alert errors */});
   }
 
   async getMsiGroup(
