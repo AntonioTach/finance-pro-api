@@ -1,4 +1,4 @@
-import { IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class UpdateUserDto {
   @IsEmail()
@@ -13,5 +13,15 @@ export class UpdateUserDto {
   @IsString()
   @IsOptional()
   currency?: string;
+
+  @IsString()
+  @IsOptional()
+  @IsIn(['dark', 'light', 'sand', 'midnight', 'ocean', 'aurora', 'pink-light', 'violet', 'ice', 'graphite'])
+  theme?: string;
+
+  @IsString()
+  @IsOptional()
+  @IsIn(['es', 'en'])
+  language?: string;
 }
 

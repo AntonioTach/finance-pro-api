@@ -50,6 +50,22 @@ export class User extends Model {
   })
   currency: string;
 
+  @Default('dark')
+  @Column({
+    type: DataType.STRING(50),
+    allowNull: false,
+    defaultValue: 'dark',
+  })
+  theme: string;
+
+  @Default('es')
+  @Column({
+    type: DataType.STRING(10),
+    allowNull: false,
+    defaultValue: 'es',
+  })
+  language: string;
+
   @CreatedAt
   @Column({
     type: DataType.DATE,
