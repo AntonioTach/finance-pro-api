@@ -57,31 +57,37 @@ export class DebtsService {
   ): Promise<Debt> {
     const debt = await this.findOne(debtId, userId);
 
-    // Determine transaction type based on debt direction
-    const txType =
-      debt.direction === DebtDirection.OWED_BY_ME
-        ? TransactionType.EXPENSE
-        : TransactionType.INCOME;
+    // Optionally create a linked transaction (default: true)
+    const shouldCreateTx = dto.createTransaction !== false;
+    let transactionId: string | null = null;
 
-    // Create linked transaction
-    const transaction = await Transaction.create({
-      userId,
-      type: txType,
-      amount: dto.amount,
-      categoryId: dto.categoryId,
-      description: `Pago deuda: ${debt.description} (${debt.counterparty})`,
-      date: new Date(dto.paymentDate + 'T12:00:00'),
-      notes: dto.notes ?? null,
-    });
+    if (shouldCreateTx && dto.categoryId) {
+      const txType =
+        debt.direction === DebtDirection.OWED_BY_ME
+          ? TransactionType.EXPENSE
+          : TransactionType.INCOME;
 
-    // Create the payment linked to the transaction
+      const transaction = await Transaction.create({
+        userId,
+        type: txType,
+        amount: dto.amount,
+        categoryId: dto.categoryId,
+        description: `Pago deuda: ${debt.description} (${debt.counterparty})`,
+        date: new Date(dto.paymentDate + 'T12:00:00'),
+        notes: dto.notes ?? null,
+      });
+
+      transactionId = transaction.id;
+    }
+
+    // Create the payment (with or without linked transaction)
     await DebtPayment.create({
       debtId,
       amount: dto.amount,
       paymentDate: dto.paymentDate,
       installmentNumber: dto.installmentNumber ?? null,
       notes: dto.notes ?? null,
-      transactionId: transaction.id,
+      transactionId,
     });
 
     // Auto-complete debt if fully paid

@@ -6,6 +6,7 @@ import {
   IsDateString,
   IsInt,
   IsUUID,
+  IsBoolean,
   Min,
 } from 'class-validator';
 
@@ -19,8 +20,12 @@ export class CreateDebtPaymentDto {
   paymentDate: string;
 
   @IsUUID()
-  @IsNotEmpty()
-  categoryId: string;
+  @IsOptional()
+  categoryId?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  createTransaction?: boolean;
 
   @IsInt()
   @Min(1)
