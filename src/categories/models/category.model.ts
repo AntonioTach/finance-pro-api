@@ -62,6 +62,12 @@ export class Category extends Model {
   })
   icon: string;
 
+  @Column({
+    type: DataType.STRING(100),
+    allowNull: true,
+  })
+  group: string;
+
   @Default(false)
   @Column({
     type: DataType.BOOLEAN,

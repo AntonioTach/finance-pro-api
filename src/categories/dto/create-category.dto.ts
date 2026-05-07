@@ -24,6 +24,10 @@ export class CreateCategoryDto {
   @IsNotEmpty()
   icon: string;
 
+  @IsString()
+  @IsOptional()
+  group?: string;
+
   @IsBoolean()
   @IsOptional()
   isDefault?: boolean;
