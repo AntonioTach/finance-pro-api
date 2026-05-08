@@ -46,8 +46,6 @@ export const getJwtConfig = (
                     process.env.JWT_EXPIRES_IN || 
                     '7d';
 
-  console.log('🔐 JWT Config initialized with secret length:', finalSecret.length);
-
   return {
     secret: finalSecret,
     signOptions: {

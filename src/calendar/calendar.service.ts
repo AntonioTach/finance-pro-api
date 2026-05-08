@@ -232,7 +232,7 @@ export class CalendarService {
     transaction: Transaction,
   ): void {
     const transactionDate = new Date(transaction.date);
-    const day = transactionDate.getDate();
+    const day = transactionDate.getUTCDate();
 
     const isMsi = !!transaction.installmentMonths;
     const eventType = isMsi ? 'msi_payment' : 'transaction';
