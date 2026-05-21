@@ -11,10 +11,14 @@ async function bootstrap() {
   // Security headers
   app.use(helmet());
 
-  // Enable CORS
-  const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:4200').replace(/\/$/, '');
+  // Enable CORS — supports comma-separated list in FRONTEND_URL
+  const rawOrigins = process.env.FRONTEND_URL || 'http://localhost:4200';
+  const allowedOrigins = rawOrigins
+    .split(',')
+    .map((o) => o.trim().replace(/\/$/, ''))
+    .filter(Boolean);
   app.enableCors({
-    origin: frontendUrl,
+    origin: allowedOrigins.length === 1 ? allowedOrigins[0] : allowedOrigins,
     credentials: true,
   });
 
