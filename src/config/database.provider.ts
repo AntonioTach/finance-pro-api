@@ -10,6 +10,8 @@ import { BudgetAlert } from '../budgets/models/budget-alert.model';
 import { BudgetPeriodSnapshot } from '../budgets/models/budget-period-snapshot.model';
 import { Card } from '../cards/models/card.model';
 import { Subscription } from '../subscriptions/models/subscription.model';
+import { SubscriptionPayment } from '../subscriptions/models/subscription-payment.model';
+import { SubscriptionPriceHistory } from '../subscriptions/models/subscription-price-history.model';
 import { Debt } from '../debts/models/debt.model';
 import { DebtPayment } from '../debts/models/debt-payment.model';
 
@@ -27,7 +29,7 @@ export const databaseProvider: Provider = {
           logging: false,
           dialectOptions: { ssl: { require: true, rejectUnauthorized: false } },
           pool: { max: 5, min: 0, acquire: 30000, idle: 10000 },
-          models: [User, Transaction, Category, Budget, BudgetAlert, BudgetPeriodSnapshot, Card, Subscription, Debt, DebtPayment],
+          models: [User, Transaction, Category, Budget, BudgetAlert, BudgetPeriodSnapshot, Card, Subscription, SubscriptionPayment, SubscriptionPriceHistory, Debt, DebtPayment],
           define: { timestamps: true, underscored: true },
         })
       : new Sequelize({
@@ -39,7 +41,7 @@ export const databaseProvider: Provider = {
           database: configService.get<string>('DATABASE_NAME', 'financepro'),
           logging: isProduction ? false : console.log,
           pool: { max: 5, min: 0, acquire: 30000, idle: 10000 },
-          models: [User, Transaction, Category, Budget, BudgetAlert, BudgetPeriodSnapshot, Card, Subscription, Debt, DebtPayment],
+          models: [User, Transaction, Category, Budget, BudgetAlert, BudgetPeriodSnapshot, Card, Subscription, SubscriptionPayment, SubscriptionPriceHistory, Debt, DebtPayment],
           define: { timestamps: true, underscored: true },
         });
 

@@ -9,10 +9,13 @@ import {
   UpdatedAt,
   ForeignKey,
   BelongsTo,
+  HasMany,
 } from 'sequelize-typescript';
 import { User } from '../../users/models/user.model';
 import { Category } from '../../categories/models/category.model';
 import { Card } from '../../cards/models/card.model';
+import { SubscriptionPayment } from './subscription-payment.model';
+import { SubscriptionPriceHistory } from './subscription-price-history.model';
 
 @Table({
   tableName: 'subscriptions',
@@ -107,4 +110,10 @@ export class Subscription extends Model {
 
   @BelongsTo(() => Card)
   card: Card;
+
+  @HasMany(() => SubscriptionPayment)
+  payments: SubscriptionPayment[];
+
+  @HasMany(() => SubscriptionPriceHistory)
+  priceHistory: SubscriptionPriceHistory[];
 }

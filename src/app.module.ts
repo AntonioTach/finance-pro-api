@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import appConfig from './config/app.config';
 import { getJwtConfig } from './config/jwt.config';
 import { DatabaseModule } from './config/database.module';
@@ -25,6 +26,7 @@ import { DebtsModule } from './debts/debts.module';
       envFilePath: ['.env.local', '.env'],
     }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 200 }]),
+    ScheduleModule.forRoot(),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: getJwtConfig,

@@ -11,6 +11,7 @@ import {
 import { SubscriptionsService } from './subscriptions.service';
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
 import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
+import { CreateSubscriptionPaymentDto } from './dto/create-subscription-payment.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../common/decorators/get-user.decorator';
 import { User } from '../users/models/user.model';
@@ -50,5 +51,23 @@ export class SubscriptionsController {
   @Delete(':id')
   remove(@Param('id') id: string, @GetUser() user: User) {
     return this.subscriptionsService.remove(id, user.id);
+  }
+
+  @Post(':id/payments')
+  addPayment(
+    @Param('id') id: string,
+    @GetUser() user: User,
+    @Body() dto: CreateSubscriptionPaymentDto,
+  ) {
+    return this.subscriptionsService.addPayment(id, user.id, dto);
+  }
+
+  @Delete(':id/payments/:paymentId')
+  removePayment(
+    @Param('id') id: string,
+    @Param('paymentId') paymentId: string,
+    @GetUser() user: User,
+  ) {
+    return this.subscriptionsService.removePayment(id, paymentId, user.id);
   }
 }

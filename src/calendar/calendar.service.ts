@@ -5,6 +5,7 @@ import { Op } from 'sequelize';
 import { Transaction, TransactionType } from '../transactions/models/transaction.model';
 import { Card, PaymentDueType } from '../cards/models/card.model';
 import { Subscription } from '../subscriptions/models/subscription.model';
+import { clampSubscriptionDay } from '../subscriptions/utils/subscription-date.util';
 import { Category } from '../categories/models/category.model';
 import {
   MonthlyCalendarResponse,
@@ -270,10 +271,11 @@ export class CalendarService {
     month: number,
   ): void {
     const paymentDay = subscription.paymentDay;
-    if (paymentDay && paymentDay <= days.length) {
-      days[paymentDay - 1].events.push({
+    if (paymentDay) {
+      const effectiveDay = clampSubscriptionDay(paymentDay, days.length);
+      days[effectiveDay - 1].events.push({
         id: `subscription-${subscription.id}-${year}-${month}`,
-        date: days[paymentDay - 1].date,
+        date: days[effectiveDay - 1].date,
         type: 'subscription',
         title: subscription.name,
         amount: Number(subscription.amount),
