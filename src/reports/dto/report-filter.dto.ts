@@ -1,12 +1,11 @@
-import { IsOptional, IsDateString } from 'class-validator';
+import { IsOptional, IsIn } from 'class-validator';
+import { TransactionQueryFiltersDto } from '../../common/dto/transaction-query-filters.dto';
 
-export class ReportFilterDto {
-  @IsDateString()
-  @IsOptional()
-  startDate?: string;
+const GRANULARITIES = ['day', 'week', 'month'] as const;
+export type ReportGranularity = (typeof GRANULARITIES)[number];
 
-  @IsDateString()
+export class ReportFilterDto extends TransactionQueryFiltersDto {
+  @IsIn(GRANULARITIES)
   @IsOptional()
-  endDate?: string;
+  granularity?: ReportGranularity;
 }
-

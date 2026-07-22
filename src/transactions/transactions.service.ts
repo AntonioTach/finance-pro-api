@@ -15,6 +15,7 @@ import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { FilterTransactionDto } from './dto/filter-transaction.dto';
 import { BudgetsService } from '../budgets/budgets.service';
 import { Op } from 'sequelize';
+import { buildTransactionWhere } from '../common/utils/transaction-where.builder';
 
 @Injectable()
 export class TransactionsService {
@@ -153,41 +154,44 @@ export class TransactionsService {
   async findAll(
     userId: string,
     filters: FilterTransactionDto,
-  ): Promise<Transaction[]> {
-    const where: any = { userId };
+  ): Promise<
+    | Transaction[]
+    | { items: Transaction[]; total: number; page: number; limit: number; totalPages: number }
+  > {
+    const where = buildTransactionWhere(userId, filters);
+    const sortBy = filters.sortBy ?? 'date';
+    const sortOrder = filters.sortOrder ?? 'DESC';
+    const include = [
+      { model: Category, as: 'category' },
+      { model: Card, as: 'card' },
+    ];
 
-    if (filters.startDate || filters.endDate) {
-      where.date = {};
-      if (filters.startDate) {
-        where.date[Op.gte] = new Date(filters.startDate);
-      }
-      if (filters.endDate) {
-        where.date[Op.lte] = new Date(filters.endDate);
-      }
+    // page/limit are only ever set when the caller explicitly asks for a page
+    // (see FilterTransactionDto) — everyone else (dashboard, cash-flow, reports)
+    // calls this with neither set and expects the full, unpaginated history.
+    if (filters.page === undefined && filters.limit === undefined) {
+      return Transaction.findAll({ where, include, order: [[sortBy, sortOrder]] });
     }
 
-    if (filters.type) {
-      where.type = filters.type;
-    }
+    const page = filters.page ?? 1;
+    const limit = filters.limit ?? 25;
 
-    if (filters.categoryId) {
-      where.categoryId = filters.categoryId;
-    }
-
-    return Transaction.findAll({
+    const { rows, count } = await Transaction.findAndCountAll({
       where,
-      include: [
-        {
-          model: Category,
-          as: 'category',
-        },
-        {
-          model: Card,
-          as: 'card',
-        },
-      ],
-      order: [['date', 'DESC']],
+      include,
+      order: [[sortBy, sortOrder]],
+      limit,
+      offset: (page - 1) * limit,
+      distinct: true,
     });
+
+    return {
+      items: rows,
+      total: count,
+      page,
+      limit,
+      totalPages: Math.ceil(count / limit),
+    };
   }
 
   async findOne(id: string, userId: string): Promise<Transaction> {
