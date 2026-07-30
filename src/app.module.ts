@@ -16,6 +16,7 @@ import { ReportsModule } from './reports/reports.module';
 import { CardsModule } from './cards/cards.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { CalendarModule } from './calendar/calendar.module';
+import { MsiModule } from './msi/msi.module';
 import { DebtsModule } from './debts/debts.module';
 
 @Module({
@@ -44,6 +45,7 @@ import { DebtsModule } from './debts/debts.module';
     CardsModule,
     SubscriptionsModule,
     CalendarModule,
+    MsiModule,
     DebtsModule,
   ],
   providers: [],

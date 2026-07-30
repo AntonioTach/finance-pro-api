@@ -7,14 +7,7 @@ import { Card, PaymentDueType } from '../cards/models/card.model';
 import { Subscription } from '../subscriptions/models/subscription.model';
 import { clampSubscriptionDay } from '../subscriptions/utils/subscription-date.util';
 import { Category } from '../categories/models/category.model';
-import {
-  MonthlyCalendarResponse,
-  YearlyProjectionResponse,
-  CalendarEvent,
-  CardSummary,
-  CardYearlyProjection,
-  MonthProjection,
-} from './dto/calendar.dto';
+import { MonthlyCalendarResponse, CalendarEvent, CardSummary } from './dto/calendar.dto';
 
 @Injectable()
 export class CalendarService {
@@ -72,47 +65,6 @@ export class CalendarService {
     };
   }
 
-  async getYearlyProjection(
-    userId: string,
-    year: number,
-  ): Promise<YearlyProjectionResponse> {
-    const cards = await this.getUserCreditCards(userId);
-    const msiTransactions = await this.getMsiTransactions(userId);
-
-    const cardProjections: CardYearlyProjection[] = [];
-    let totalMaxDebt = 0;
-
-    for (const card of cards) {
-      const cardMsiTransactions = msiTransactions.filter(
-        (t) => t.cardId === card.id,
-      );
-
-      const projection = this.calculateCardYearlyProjection(
-        card,
-        cardMsiTransactions,
-        year,
-      );
-
-      const maxDebt = Math.max(...projection.map((p) => p.totalDebt), 0);
-      totalMaxDebt = Math.max(totalMaxDebt, maxDebt);
-
-      cardProjections.push({
-        cardId: card.id,
-        cardName: card.name,
-        network: card.network,
-        last4: card.last4,
-        maxDebt,
-        projection,
-      });
-    }
-
-    return {
-      year,
-      cards: cardProjections,
-      totalMaxDebt,
-    };
-  }
-
   private async getUserCreditCards(userId: string): Promise<Card[]> {
     return Card.findAll({
       where: {
@@ -150,20 +102,6 @@ export class CalendarService {
         isActive: true,
       },
       include: [{ model: Card, as: 'card' }],
-    });
-  }
-
-  private async getMsiTransactions(userId: string): Promise<Transaction[]> {
-    return Transaction.findAll({
-      where: {
-        userId,
-        installmentMonths: {
-          [Op.not]: null,
-        },
-        type: TransactionType.CARD_PURCHASE,
-      },
-      include: [{ model: Card, as: 'card' }],
-      order: [['date', 'ASC']],
     });
   }
 
@@ -339,61 +277,4 @@ export class CalendarService {
     };
   }
 
-  private calculateCardYearlyProjection(
-    card: Card,
-    msiTransactions: Transaction[],
-    year: number,
-  ): MonthProjection[] {
-    const projections: MonthProjection[] = [];
-
-    for (let month = 1; month <= 12; month++) {
-      const monthDate = new Date(year, month - 1, 1);
-      const msiDetails: MonthProjection['msiDetails'] = [];
-      let msiDebt = 0;
-
-      for (const transaction of msiTransactions) {
-        // Check if this MSI is still active in this month
-        const transactionDate = new Date(transaction.date);
-        const monthsElapsed = this.getMonthsDifference(transactionDate, monthDate);
-        const totalMonths = transaction.installmentMonths!;
-        const remainingMonths = totalMonths - monthsElapsed;
-
-        if (remainingMonths > 0) {
-          const monthlyAmount = Number(transaction.amount);
-          const remainingDebt = monthlyAmount * remainingMonths;
-          msiDebt += remainingDebt;
-
-          // Strip installment info from description for parent transactions
-          let description = transaction.description;
-          const installmentPattern = /\s*\(\d+\/\d+\)\s*$/;
-          description = description.replace(installmentPattern, '');
-
-          msiDetails.push({
-            transactionId: transaction.parentTransactionId ?? transaction.id,
-            description,
-            monthlyAmount,
-            remainingMonths,
-            totalMonths,
-          });
-        }
-      }
-
-      projections.push({
-        month,
-        totalDebt: msiDebt,
-        msiDebt,
-        msiDetails,
-        isPaidOff: msiDebt === 0,
-      });
-    }
-
-    return projections;
-  }
-
-  private getMonthsDifference(startDate: Date, endDate: Date): number {
-    return (
-      (endDate.getFullYear() - startDate.getFullYear()) * 12 +
-      (endDate.getMonth() - startDate.getMonth())
-    );
-  }
 }

@@ -4,6 +4,7 @@ import { DATABASE_PROVIDER } from '../config/database.provider';
 import { Sequelize } from 'sequelize-typescript';
 import { Card, CardType, CardStatus } from './models/card.model';
 import { Transaction, TransactionType } from '../transactions/models/transaction.model';
+import { MsiService } from '../msi/msi.service';
 
 export interface CardSummary {
   cardId: string;
@@ -18,6 +19,11 @@ export interface CardSummary {
   creditLimit: number | null;
   nextCutoffDate: string | null;
   nextDueDate: string | null;
+  // Active MSI (installment) purchases on this card — derived from the same
+  // msi module used by the dedicated MSI dashboard, so these numbers always
+  // agree with what that section shows.
+  activeMsiCount: number | null;
+  msiMonthlyCommitment: number | null;
 }
 
 @Injectable()
@@ -25,6 +31,7 @@ export class CardSummaryService {
   constructor(
     @Inject(DATABASE_PROVIDER)
     private readonly sequelize: Sequelize,
+    private readonly msiService: MsiService,
   ) {}
 
   async getAllCardsSummary(userId: string): Promise<CardSummary[]> {
@@ -70,6 +77,8 @@ export class CardSummaryService {
       creditLimit: null,
       nextCutoffDate: null,
       nextDueDate: null,
+      activeMsiCount: null,
+      msiMonthlyCommitment: null,
     };
 
     if (card.type === CardType.DEBIT) {
@@ -77,7 +86,10 @@ export class CardSummaryService {
     }
 
     // Credit card calculations
-    const outstandingDebt = await this.calculateOutstandingDebt(card.id);
+    const [outstandingDebt, activeMsiGroups] = await Promise.all([
+      this.calculateOutstandingDebt(card.id),
+      this.msiService.getMsiGroups(card.userId, { cardId: card.id, status: 'active' }),
+    ]);
     const availableCredit = Math.max(0, Number(card.creditLimit) - outstandingDebt);
     const nextCutoffDate = this.getNextCutoffDate(card.billingCutoffDay);
     const nextDueDate = this.getNextDueDate(card, nextCutoffDate);
@@ -89,6 +101,8 @@ export class CardSummaryService {
       creditLimit: Number(card.creditLimit),
       nextCutoffDate: nextCutoffDate.toISOString().split('T')[0],
       nextDueDate: nextDueDate.toISOString().split('T')[0],
+      activeMsiCount: activeMsiGroups.length,
+      msiMonthlyCommitment: activeMsiGroups.reduce((sum, g) => sum + g.monthlyAmount, 0),
     };
   }
 

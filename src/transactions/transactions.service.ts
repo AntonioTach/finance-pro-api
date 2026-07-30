@@ -14,7 +14,7 @@ import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { FilterTransactionDto } from './dto/filter-transaction.dto';
 import { BudgetsService } from '../budgets/budgets.service';
-import { Op } from 'sequelize';
+import { Op, Transaction as SequelizeTransaction } from 'sequelize';
 import { buildTransactionWhere } from '../common/utils/transaction-where.builder';
 
 @Injectable()
@@ -45,18 +45,32 @@ export class TransactionsService {
       this.validateMsiRequirements(createTransactionDto, card);
     }
 
-    // Create the main transaction
-    const transaction = await Transaction.create({
-      ...createTransactionDto,
-      userId,
-      date: new Date(createTransactionDto.date),
-      installmentCurrent: createTransactionDto.installmentMonths ? 1 : null,
-    });
+    // Create the main transaction (+ installments, if MSI) atomically: a
+    // failure partway through bulk-creating installments must not leave an
+    // orphaned parent row with no children.
+    const transaction = await this.sequelize.transaction(async (dbTransaction) => {
+      const created = await Transaction.create(
+        {
+          ...createTransactionDto,
+          userId,
+          date: new Date(createTransactionDto.date),
+          installmentCurrent: createTransactionDto.installmentMonths ? 1 : null,
+        },
+        { transaction: dbTransaction },
+      );
 
-    // Generate installments if MSI
-    if (createTransactionDto.installmentMonths && card) {
-      await this.generateInstallments(transaction, card, userId, createTransactionDto);
-    }
+      if (createTransactionDto.installmentMonths && card) {
+        await this.generateInstallments(
+          created,
+          card,
+          userId,
+          createTransactionDto,
+          dbTransaction,
+        );
+      }
+
+      return created;
+    });
 
     // Check budget alerts asynchronously (non-blocking)
     this.budgetsService
@@ -89,22 +103,38 @@ export class TransactionsService {
     card: Card,
     userId: string,
     dto: CreateTransactionDto,
+    dbTransaction: SequelizeTransaction,
   ): Promise<void> {
     const totalMonths = dto.installmentMonths!;
-    const monthlyAmount = Number((dto.amount / totalMonths).toFixed(2));
     const purchaseDate = new Date(dto.date);
     const cutoffDay = card.billingCutoffDay!;
+
+    // Split the total amount into whole cents so that sum(installments) is
+    // always exactly equal to the original purchase amount — a naive
+    // `amount / totalMonths` division loses/gains a cent or two to rounding.
+    // The leftover remainder is folded into the last installment.
+    const totalCents = Math.round(dto.amount * 100);
+    const baseCents = Math.floor(totalCents / totalMonths);
+    const remainderCents = totalCents - baseCents * totalMonths;
+    const monthlyAmount = baseCents / 100;
+    const lastInstallmentAmount = (baseCents + remainderCents) / 100;
+
+    // Month 1 is the parent transaction itself; snap its date to the card's
+    // billing cutoff day too, so all N installments follow the same
+    // billing-cycle placement instead of month 1 keeping the raw purchase date.
+    const parentDate = this.calculateInstallmentDate(purchaseDate, cutoffDay, 1);
 
     // Generate installments for months 2 to N (month 1 is the parent transaction)
     const installments: Partial<Transaction>[] = [];
 
     for (let month = 2; month <= totalMonths; month++) {
       const installmentDate = this.calculateInstallmentDate(purchaseDate, cutoffDay, month);
-      
+      const amount = month === totalMonths ? lastInstallmentAmount : monthlyAmount;
+
       installments.push({
         userId,
         type: TransactionType.CARD_PURCHASE,
-        amount: monthlyAmount,
+        amount,
         categoryId: dto.categoryId,
         description: `${dto.description} (${month}/${totalMonths})`,
         date: installmentDate,
@@ -116,15 +146,19 @@ export class TransactionsService {
       });
     }
 
-    // Update parent transaction description and amount for first installment
-    await parentTransaction.update({
-      amount: monthlyAmount,
-      description: `${dto.description} (1/${totalMonths})`,
-    });
+    // Update parent transaction description, amount, and date for first installment
+    await parentTransaction.update(
+      {
+        amount: monthlyAmount,
+        description: `${dto.description} (1/${totalMonths})`,
+        date: parentDate,
+      },
+      { transaction: dbTransaction },
+    );
 
     // Bulk create all installments
     if (installments.length > 0) {
-      await Transaction.bulkCreate(installments as any[]);
+      await Transaction.bulkCreate(installments as any[], { transaction: dbTransaction });
     }
   }
 
@@ -222,6 +256,16 @@ export class TransactionsService {
     updateTransactionDto: UpdateTransactionDto,
   ): Promise<Transaction> {
     const transaction = await this.findOne(id, userId);
+
+    // installmentMonths can only be set at creation time (it drives
+    // generateInstallments). Changing it via a plain PATCH would silently
+    // desync the row from its MSI group instead of regenerating installments.
+    // Group-level edits go through updateMsiGroup/cancelMsi instead.
+    if (updateTransactionDto.installmentMonths !== undefined) {
+      throw new BadRequestException(
+        'installmentMonths cannot be changed via update; use the MSI group endpoints (cancel-msi, msi-group) to manage an existing installment plan',
+      );
+    }
 
     if (updateTransactionDto.categoryId) {
       await this.validateCategoryOwnership(

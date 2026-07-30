@@ -5,8 +5,8 @@ describe('CardSummaryService', () => {
   let service: CardSummaryService;
 
   beforeEach(() => {
-    // Create service with null sequelize since we're testing pure functions
-    service = new CardSummaryService(null as any);
+    // Create service with null sequelize/msiService since we're testing pure functions
+    service = new CardSummaryService(null as any, null as any);
   });
 
   describe('getNextCutoffDate', () => {

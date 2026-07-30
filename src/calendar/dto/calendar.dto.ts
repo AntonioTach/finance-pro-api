@@ -44,32 +44,3 @@ export interface MonthlyCalendarResponse {
     byCard: CardSummary[];
   };
 }
-
-export interface MonthProjection {
-  month: number;
-  totalDebt: number;
-  msiDebt: number;
-  msiDetails: {
-    transactionId: string;
-    description: string;
-    monthlyAmount: number;
-    remainingMonths: number;
-    totalMonths: number;
-  }[];
-  isPaidOff: boolean;
-}
-
-export interface CardYearlyProjection {
-  cardId: string;
-  cardName: string;
-  network: string | null;
-  last4: string | null;
-  maxDebt: number;
-  projection: MonthProjection[];
-}
-
-export interface YearlyProjectionResponse {
-  year: number;
-  cards: CardYearlyProjection[];
-  totalMaxDebt: number;
-}
