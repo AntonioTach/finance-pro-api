@@ -35,7 +35,7 @@ export class CalendarService {
     // Initialize days array
     const days = Array.from({ length: daysInMonth }, (_, i) => ({
       day: i + 1,
-      date: new Date(year, month - 1, i + 1).toISOString().split('T')[0],
+      date: `${year}-${String(month).padStart(2, '0')}-${String(i + 1).padStart(2, '0')}`,
       events: [] as CalendarEvent[],
     }));
 
@@ -163,7 +163,17 @@ export class CalendarService {
       dueDate.setDate(dueDate.getDate() + card.paymentDueValue);
     }
 
-    return dueDate.toISOString().split('T')[0];
+    return this.formatDateOnly(dueDate);
+  }
+
+  // Formats a Date built from local year/month/day components as YYYY-MM-DD
+  // using local getters, not toISOString() (which converts through UTC and
+  // can shift the calendar day depending on the server's timezone offset).
+  private formatDateOnly(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   private addTransactionEvent(
@@ -266,7 +276,7 @@ export class CalendarService {
         totalAmount,
         dueDate: this.calculateDueDate(card, year, month),
         cutoffDate: card.billingCutoffDay
-          ? new Date(year, month - 1, card.billingCutoffDay).toISOString().split('T')[0]
+          ? this.formatDateOnly(new Date(year, month - 1, card.billingCutoffDay))
           : null,
       });
     }

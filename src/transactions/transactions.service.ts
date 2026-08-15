@@ -53,7 +53,7 @@ export class TransactionsService {
         {
           ...createTransactionDto,
           userId,
-          date: new Date(createTransactionDto.date),
+          date: new Date(createTransactionDto.date + 'T12:00:00'),
           installmentCurrent: createTransactionDto.installmentMonths ? 1 : null,
         },
         { transaction: dbTransaction },
@@ -106,7 +106,7 @@ export class TransactionsService {
     dbTransaction: SequelizeTransaction,
   ): Promise<void> {
     const totalMonths = dto.installmentMonths!;
-    const purchaseDate = new Date(dto.date);
+    const purchaseDate = new Date(dto.date + 'T12:00:00');
     const cutoffDay = card.billingCutoffDay!;
 
     // Split the total amount into whole cents so that sum(installments) is
@@ -291,7 +291,7 @@ export class TransactionsService {
     }
 
     if (updateTransactionDto.date) {
-      updateTransactionDto.date = new Date(updateTransactionDto.date) as any;
+      updateTransactionDto.date = new Date(updateTransactionDto.date + 'T12:00:00') as any;
     }
 
     await transaction.update(updateTransactionDto);
