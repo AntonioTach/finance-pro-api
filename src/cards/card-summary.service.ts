@@ -5,6 +5,7 @@ import { Sequelize } from 'sequelize-typescript';
 import { Card, CardType, CardStatus } from './models/card.model';
 import { Transaction, TransactionType } from '../transactions/models/transaction.model';
 import { MsiService } from '../msi/msi.service';
+import { BalanceService } from '../accounts/balance.service';
 
 export interface CardSummary {
   cardId: string;
@@ -14,7 +15,13 @@ export interface CardSummary {
   last4: string | null;
   currency: string;
   // Credit card specific
+  /** Current debt anchored to the last reconciliation, up to today, excluding future MSI installments. */
   outstandingDebt: number | null;
+  /** Future-dated MSI installments still to be billed. */
+  msiPending: number | null;
+  /** outstandingDebt + msiPending — what the bank counts against the limit. */
+  totalDebt: number | null;
+  lastReconciliationDate: string | null;
   availableCredit: number | null;
   creditLimit: number | null;
   nextCutoffDate: string | null;
@@ -32,6 +39,7 @@ export class CardSummaryService {
     @Inject(DATABASE_PROVIDER)
     private readonly sequelize: Sequelize,
     private readonly msiService: MsiService,
+    private readonly balanceService: BalanceService,
   ) {}
 
   async getAllCardsSummary(userId: string): Promise<CardSummary[]> {
@@ -73,6 +81,9 @@ export class CardSummaryService {
       last4: card.last4,
       currency: card.currency,
       outstandingDebt: null,
+      msiPending: null,
+      totalDebt: null,
+      lastReconciliationDate: null,
       availableCredit: null,
       creditLimit: null,
       nextCutoffDate: null,
@@ -86,17 +97,20 @@ export class CardSummaryService {
     }
 
     // Credit card calculations
-    const [outstandingDebt, activeMsiGroups] = await Promise.all([
-      this.calculateOutstandingDebt(card.id),
+    const [debt, activeMsiGroups] = await Promise.all([
+      this.balanceService.getCardDebt(card),
       this.msiService.getMsiGroups(card.userId, { cardId: card.id, status: 'active' }),
     ]);
-    const availableCredit = Math.max(0, Number(card.creditLimit) - outstandingDebt);
+    const availableCredit = Math.max(0, Number(card.creditLimit) - debt.totalDebt);
     const nextCutoffDate = this.getNextCutoffDate(card.billingCutoffDay);
     const nextDueDate = this.getNextDueDate(card, nextCutoffDate);
 
     return {
       ...baseSummary,
-      outstandingDebt,
+      outstandingDebt: debt.currentDebt,
+      msiPending: debt.msiPending,
+      totalDebt: debt.totalDebt,
+      lastReconciliationDate: debt.anchor?.date ?? null,
       availableCredit,
       creditLimit: Number(card.creditLimit),
       nextCutoffDate: nextCutoffDate.toISOString().split('T')[0],
@@ -104,32 +118,6 @@ export class CardSummaryService {
       activeMsiCount: activeMsiGroups.length,
       msiMonthlyCommitment: activeMsiGroups.reduce((sum, g) => sum + g.monthlyAmount, 0),
     };
-  }
-
-  /**
-   * Calculates the outstanding debt for a credit card
-   * Formula: SUM(CARD_PURCHASE) - SUM(CARD_PAYMENT)
-   */
-  async calculateOutstandingDebt(cardId: string): Promise<number> {
-    const transactions: any[] = await Transaction.findAll({
-      where: { cardId },
-      attributes: [
-        'type',
-        [this.sequelize.fn('SUM', this.sequelize.col('amount')), 'total'],
-      ],
-      group: ['type'],
-      raw: true,
-    });
-
-    const purchases = transactions.find(
-      (t) => t.type === TransactionType.CARD_PURCHASE,
-    )?.total || 0;
-
-    const payments = transactions.find(
-      (t) => t.type === TransactionType.CARD_PAYMENT,
-    )?.total || 0;
-
-    return Math.max(0, Number(purchases) - Number(payments));
   }
 
   getNextCutoffDate(cutoffDay: number, today: Date = new Date()): Date {

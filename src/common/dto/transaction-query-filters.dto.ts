@@ -23,6 +23,10 @@ export class TransactionQueryFiltersDto {
   @IsOptional()
   cardId?: string;
 
+  @IsUUID()
+  @IsOptional()
+  accountId?: string;
+
   @IsString()
   @MaxLength(200)
   @IsOptional()

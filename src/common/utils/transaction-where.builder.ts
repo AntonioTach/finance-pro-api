@@ -29,6 +29,10 @@ export function buildTransactionWhere(
     where.cardId = filters.cardId;
   }
 
+  if (filters.accountId) {
+    where.accountId = filters.accountId;
+  }
+
   if (filters.minAmount !== undefined || filters.maxAmount !== undefined) {
     where.amount = {};
     if (filters.minAmount !== undefined) {

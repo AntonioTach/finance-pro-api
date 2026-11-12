@@ -54,6 +54,18 @@ describe('TransactionsService', () => {
       expect(month3.getDate()).toBe(15);
     });
 
+    it('clamps a day-31 cutoff to the end of short months instead of rolling over', () => {
+      const purchase = new Date(2026, 0, 5, 12); // Jan 5, cutoff 31
+      const month2 = call(purchase, 31, 2);
+      expect(month2.getFullYear()).toBe(2026);
+      expect(month2.getMonth()).toBe(1); // February, not March
+      expect(month2.getDate()).toBe(28);
+
+      const month4 = call(purchase, 31, 4);
+      expect(month4.getMonth()).toBe(3); // April
+      expect(month4.getDate()).toBe(30);
+    });
+
     it('rolls over year boundary correctly', () => {
       const purchase = new Date(2026, 10, 20); // Nov 20, after cutoff day 15
       const month3 = call(purchase, 15, 3);

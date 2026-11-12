@@ -12,6 +12,7 @@ import {
   HasMany,
 } from 'sequelize-typescript';
 import { User } from '../../users/models/user.model';
+import { Account } from '../../accounts/models/account.model';
 
 export enum CardType {
   CREDIT = 'credit',
@@ -116,6 +117,15 @@ export class Card extends Model {
   })
   paymentDueValue: number;
 
+  /** Debit cards only: the account their purchases are paid from. */
+  @ForeignKey(() => Account)
+  @Column({
+    type: DataType.UUID,
+    allowNull: true,
+    field: 'account_id',
+  })
+  accountId: string | null;
+
   @Default(CardStatus.ACTIVE)
   @Column({
     type: DataType.ENUM(...Object.values(CardStatus)),
@@ -139,4 +149,7 @@ export class Card extends Model {
 
   @BelongsTo(() => User)
   user: User;
+
+  @BelongsTo(() => Account)
+  account: Account;
 }

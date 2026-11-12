@@ -18,6 +18,8 @@ import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { MsiModule } from './msi/msi.module';
 import { DebtsModule } from './debts/debts.module';
+import { AccountsModule } from './accounts/accounts.module';
+import { ReconciliationsModule } from './reconciliations/reconciliations.module';
 
 @Module({
   imports: [
@@ -47,6 +49,8 @@ import { DebtsModule } from './debts/debts.module';
     CalendarModule,
     MsiModule,
     DebtsModule,
+    AccountsModule,
+    ReconciliationsModule,
   ],
   providers: [],
 })

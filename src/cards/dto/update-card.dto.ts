@@ -7,6 +7,7 @@ import {
   Min,
   Max,
   Length,
+  IsUUID,
 } from 'class-validator';
 import { CardType, CardNetwork, CardStatus, PaymentDueType } from '../models/card.model';
 
@@ -57,4 +58,8 @@ export class UpdateCardDto {
   @IsOptional()
   @IsEnum(CardStatus)
   status?: CardStatus;
+
+  @IsOptional()
+  @IsUUID()
+  accountId?: string;
 }

@@ -16,6 +16,7 @@ import { FilterTransactionDto } from './dto/filter-transaction.dto';
 import { BudgetsService } from '../budgets/budgets.service';
 import { Op, Transaction as SequelizeTransaction } from 'sequelize';
 import { buildTransactionWhere } from '../common/utils/transaction-where.builder';
+import { resolveTransactionAccountId } from '../accounts/account-resolution';
 
 @Injectable()
 export class TransactionsService {
@@ -178,11 +179,22 @@ export class TransactionsService {
     // Plus 1 if purchase is on/after cutoff (charges start next cycle)
     const monthOffset = (installmentMonth - 1) + (isBeforeCutoff ? 0 : 1);
     
-    const installmentDate = new Date(purchaseDate);
-    installmentDate.setMonth(installmentDate.getMonth() + monthOffset);
-    installmentDate.setDate(cutoffDay);
-    
-    return installmentDate;
+    // Build the date from year/month directly and clamp the cutoff day to the
+    // target month's length: setMonth()+setDate(31) on a short month rolls
+    // over into the following month and misplaces the installment.
+    const targetMonthIndex = purchaseDate.getMonth() + monthOffset;
+    const year = purchaseDate.getFullYear() + Math.floor(targetMonthIndex / 12);
+    const month = ((targetMonthIndex % 12) + 12) % 12;
+    const lastDay = new Date(year, month + 1, 0).getDate();
+
+    return new Date(
+      year,
+      month,
+      Math.min(cutoffDay, lastDay),
+      purchaseDate.getHours(),
+      purchaseDate.getMinutes(),
+      purchaseDate.getSeconds(),
+    );
   }
 
   async findAll(
@@ -294,7 +306,23 @@ export class TransactionsService {
       updateTransactionDto.date = new Date(updateTransactionDto.date + 'T12:00:00') as any;
     }
 
-    await transaction.update(updateTransactionDto);
+    // Re-apply the account rule whenever something that drives it changes
+    // (on create it runs in the Transaction BeforeCreate hook).
+    const payload: Record<string, unknown> = { ...updateTransactionDto };
+    if (
+      updateTransactionDto.accountId !== undefined ||
+      updateTransactionDto.type !== undefined ||
+      updateTransactionDto.cardId !== undefined
+    ) {
+      payload.accountId = await resolveTransactionAccountId({
+        userId,
+        type: newType,
+        cardId: newCardId,
+        accountId: updateTransactionDto.accountId ?? transaction.accountId,
+      });
+    }
+
+    await transaction.update(payload);
     const updated = await this.findOne(id, userId);
 
     this.budgetsService

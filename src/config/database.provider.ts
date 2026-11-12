@@ -14,6 +14,10 @@ import { SubscriptionPayment } from '../subscriptions/models/subscription-paymen
 import { SubscriptionPriceHistory } from '../subscriptions/models/subscription-price-history.model';
 import { Debt } from '../debts/models/debt.model';
 import { DebtPayment } from '../debts/models/debt-payment.model';
+import { Account } from '../accounts/models/account.model';
+import { AccountTransfer } from '../accounts/models/account-transfer.model';
+import { Reconciliation } from '../reconciliations/models/reconciliation.model';
+import { ReconciliationItem } from '../reconciliations/models/reconciliation-item.model';
 
 export const DATABASE_PROVIDER = 'SEQUELIZE';
 
@@ -29,7 +33,7 @@ export const databaseProvider: Provider = {
           logging: false,
           dialectOptions: { ssl: { require: true, rejectUnauthorized: false } },
           pool: { max: 5, min: 0, acquire: 30000, idle: 10000 },
-          models: [User, Transaction, Category, Budget, BudgetAlert, BudgetPeriodSnapshot, Card, Subscription, SubscriptionPayment, SubscriptionPriceHistory, Debt, DebtPayment],
+          models: [User, Transaction, Category, Budget, BudgetAlert, BudgetPeriodSnapshot, Card, Subscription, SubscriptionPayment, SubscriptionPriceHistory, Debt, DebtPayment, Account, AccountTransfer, Reconciliation, ReconciliationItem],
           define: { timestamps: true, underscored: true },
         })
       : new Sequelize({
@@ -41,7 +45,7 @@ export const databaseProvider: Provider = {
           database: configService.get<string>('DATABASE_NAME', 'financepro'),
           logging: isProduction ? false : console.log,
           pool: { max: 5, min: 0, acquire: 30000, idle: 10000 },
-          models: [User, Transaction, Category, Budget, BudgetAlert, BudgetPeriodSnapshot, Card, Subscription, SubscriptionPayment, SubscriptionPriceHistory, Debt, DebtPayment],
+          models: [User, Transaction, Category, Budget, BudgetAlert, BudgetPeriodSnapshot, Card, Subscription, SubscriptionPayment, SubscriptionPriceHistory, Debt, DebtPayment, Account, AccountTransfer, Reconciliation, ReconciliationItem],
           define: { timestamps: true, underscored: true },
         });
 

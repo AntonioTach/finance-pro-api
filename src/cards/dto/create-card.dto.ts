@@ -8,6 +8,7 @@ import {
   Max,
   Length,
   ValidateIf,
+  IsUUID,
 } from 'class-validator';
 import { CardType, CardNetwork, PaymentDueType } from '../models/card.model';
 
@@ -52,4 +53,9 @@ export class CreateCardDto {
   @Min(1)
   @Max(31)
   paymentDueValue?: number;
+
+  /** Debit cards: the account their purchases come out of. Defaults to the user's default account. */
+  @IsOptional()
+  @IsUUID()
+  accountId?: string;
 }

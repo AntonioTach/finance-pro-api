@@ -5,6 +5,7 @@ import { Sequelize } from 'sequelize-typescript';
 import * as bcrypt from 'bcrypt';
 import { User } from './models/user.model';
 import { Category } from '../categories/models/category.model';
+import { getOrCreateDefaultAccount } from '../accounts/account-resolution';
 import { DEFAULT_CATEGORIES } from '../categories/constants/default-categories.const';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -41,6 +42,7 @@ export class UsersService {
       );
 
       await this.createDefaultCategories(user.id, transaction);
+      await getOrCreateDefaultAccount(user.id, transaction);
 
       await transaction.commit();
       return user;

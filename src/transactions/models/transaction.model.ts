@@ -10,10 +10,14 @@ import {
   ForeignKey,
   BelongsTo,
   HasMany,
+  BeforeCreate,
 } from 'sequelize-typescript';
+import { CreateOptions } from 'sequelize';
 import { User } from '../../users/models/user.model';
 import { Category } from '../../categories/models/category.model';
 import { Card } from '../../cards/models/card.model';
+import { Account } from '../../accounts/models/account.model';
+import { resolveTransactionAccountId } from '../../accounts/account-resolution';
 
 export enum TransactionType {
   INCOME = 'income',
@@ -108,6 +112,20 @@ export class Transaction extends Model {
   })
   parentTransactionId: string;
 
+  /**
+   * Account this movement takes money from / puts money into. Set iff the
+   * transaction moves real money (income, expense, card payment, debit-card
+   * purchase); null for credit-card purchases. Assigned automatically on
+   * create — see resolveTransactionAccountId.
+   */
+  @ForeignKey(() => Account)
+  @Column({
+    type: DataType.UUID,
+    allowNull: true,
+    field: 'account_id',
+  })
+  accountId: string | null;
+
   @CreatedAt
   @Column({
     type: DataType.DATE,
@@ -131,10 +149,28 @@ export class Transaction extends Model {
   @BelongsTo(() => Card)
   card: Card;
 
+  @BelongsTo(() => Account)
+  account: Account;
+
   @BelongsTo(() => Transaction, 'parentTransactionId')
   parentTransaction: Transaction;
 
   @HasMany(() => Transaction, 'parentTransactionId')
   installments: Transaction[];
-}
 
+  // Single choke point for the account invariant: every code path that
+  // creates a transaction (transactions, debts, subscriptions, auto-charge)
+  // goes through Transaction.create, so the rule lives here once.
+  @BeforeCreate
+  static async assignAccount(instance: Transaction, options: CreateOptions): Promise<void> {
+    instance.accountId = await resolveTransactionAccountId(
+      {
+        userId: instance.userId,
+        type: instance.type,
+        cardId: instance.cardId,
+        accountId: instance.accountId,
+      },
+      options.transaction ?? undefined,
+    );
+  }
+}

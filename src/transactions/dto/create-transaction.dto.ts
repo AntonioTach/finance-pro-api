@@ -44,6 +44,11 @@ export class CreateTransactionDto {
   @IsOptional()
   cardId?: string;
 
+  /** Account for income / expense / card payment. Defaults to the user's default account; ignored for card purchases. */
+  @IsUUID()
+  @IsOptional()
+  accountId?: string;
+
   @IsOptional()
   @IsIn([3, 6, 9, 12, 15, 18, 24])
   installmentMonths?: number;
