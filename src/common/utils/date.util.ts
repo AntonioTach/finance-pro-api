@@ -15,6 +15,11 @@ export function todayStr(now: Date = new Date()): string {
   return `${y}-${m}-${d}`;
 }
 
+/** First instant of the given YYYY-MM-DD day, local time. */
+export function startOfDay(dateStr: string): Date {
+  return new Date(`${dateStr}T00:00:00.000`);
+}
+
 /** Last instant of the given YYYY-MM-DD day, local time. */
 export function endOfDay(dateStr: string): Date {
   return new Date(`${dateStr}T23:59:59.999`);

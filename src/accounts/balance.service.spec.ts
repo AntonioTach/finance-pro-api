@@ -5,7 +5,7 @@ import { AccountTransfer } from './models/account-transfer.model';
 import { Card, CardType } from '../cards/models/card.model';
 import { Transaction, TransactionType } from '../transactions/models/transaction.model';
 import { ReconciliationItem } from '../reconciliations/models/reconciliation-item.model';
-import { endOfDay } from '../common/utils/date.util';
+import { endOfDay, startOfDay } from '../common/utils/date.util';
 
 describe('BalanceService', () => {
   let service: BalanceService;
@@ -14,12 +14,24 @@ describe('BalanceService', () => {
   const account = { id: 'acc-1', initialBalance: '1000.00' } as unknown as Account;
   const card = { id: 'card-1', type: CardType.CREDIT } as unknown as Card;
 
+  const SAVED_AT = new Date('2026-11-01T10:30:00');
   const mockAnchor = (date: string | null, realAmount = 0) =>
     jest.spyOn(ReconciliationItem, 'findOne').mockResolvedValue(
       (date
-        ? { reconciliationId: 'r-1', realAmount, difference: 0, reconciliation: { date } }
+        ? {
+            reconciliationId: 'r-1',
+            realAmount,
+            difference: 0,
+            reconciliation: { date, createdAt: SAVED_AT },
+          }
         : null) as any,
     );
+
+  /** The two branches of the "after the anchor" filter. */
+  const afterAnchorBranches = (where: any) => {
+    const [laterDays, sameDay] = where[Op.or];
+    return { laterDays, sameDay };
+  };
 
   const mockTotals = (rows: { type: TransactionType; total: string }[]) =>
     jest.spyOn(Transaction, 'findAll').mockResolvedValue(rows as any);
@@ -66,9 +78,15 @@ describe('BalanceService', () => {
 
       expect(anchor?.date).toBe('2026-11-01');
       expect(balance).toBe(8200); // initialBalance is ignored once anchored
-      const where = findAll.mock.calls[0][0]!.where as any;
-      // Anything dated on/before the reconciliation day is already inside it.
-      expect(where.date[Op.gt]).toEqual(endOfDay('2026-11-01'));
+      const { laterDays, sameDay } = afterAnchorBranches(findAll.mock.calls[0][0]!.where);
+      // Later days count…
+      expect(laterDays.date[Op.gt]).toEqual(endOfDay('2026-11-01'));
+      expect(laterDays.date[Op.lte]).toEqual(endOfDay('2026-11-12'));
+      // …and so do movements dated on the reconciliation day but logged after it was saved.
+      // Anything else dated on/before that day is already inside the real amount.
+      expect(sameDay.date[Op.gte]).toEqual(startOfDay('2026-11-01'));
+      expect(sameDay.date[Op.lte]).toEqual(endOfDay('2026-11-01'));
+      expect(sameDay.createdAt[Op.gt]).toEqual(SAVED_AT);
     });
 
     it('subtracts card payments and debit-card purchases, and applies transfers', async () => {
@@ -83,9 +101,11 @@ describe('BalanceService', () => {
       const { balance } = await service.getAccountBalance(account, '2026-11-12');
 
       expect(balance).toBe(1000 + 100 - 250 - 50.5 + 400 - 150);
-      const transferWhere = (sum.mock.calls[0][1] as any).where;
-      expect(transferWhere.date[Op.gt]).toBe('2026-11-01');
-      expect(transferWhere.date[Op.lte]).toBe('2026-11-12');
+      const { laterDays, sameDay } = afterAnchorBranches((sum.mock.calls[0][1] as any).where);
+      expect(laterDays.date[Op.gt]).toBe('2026-11-01');
+      expect(laterDays.date[Op.lte]).toBe('2026-11-12');
+      expect(sameDay.date).toBe('2026-11-01');
+      expect(sameDay.createdAt[Op.gt]).toEqual(SAVED_AT);
     });
   });
 
@@ -108,8 +128,10 @@ describe('BalanceService', () => {
       // date arrives later is counted exactly once, when it posts.
       const where = findAll.mock.calls[0][0]!.where as any;
       expect(where.cardId).toBe('card-1');
-      expect(where.date[Op.gt]).toEqual(endOfDay('2026-11-01'));
-      expect(where.date[Op.lte]).toEqual(endOfDay('2026-11-12'));
+      const { laterDays, sameDay } = afterAnchorBranches(where);
+      expect(laterDays.date[Op.gt]).toEqual(endOfDay('2026-11-01'));
+      expect(laterDays.date[Op.lte]).toEqual(endOfDay('2026-11-12'));
+      expect(sameDay.createdAt[Op.gt]).toEqual(SAVED_AT);
 
       const msiWhere = (msiSum.mock.calls[0][1] as any).where;
       expect(msiWhere.date[Op.gt]).toEqual(endOfDay('2026-11-12'));

@@ -8,11 +8,13 @@ import { Card } from '../cards/models/card.model';
 import { Transaction, TransactionType } from '../transactions/models/transaction.model';
 import { Reconciliation } from '../reconciliations/models/reconciliation.model';
 import { ReconciliationItem } from '../reconciliations/models/reconciliation-item.model';
-import { endOfDay, todayStr } from '../common/utils/date.util';
+import { endOfDay, startOfDay, todayStr } from '../common/utils/date.util';
 
 export interface BalanceAnchor {
   reconciliationId: string;
   date: string;
+  /** When the reconciliation was saved: same-day movements logged after it still count. */
+  createdAt: Date;
   realAmount: number;
   difference: number;
 }
@@ -34,8 +36,9 @@ const round2 = (n: number): number => Math.round(n * 100) / 100;
  *   balance = anchor.realAmount (or account.initialBalance with no reconciliation)
  *           + movements dated in (anchor.date, asOf]
  *
- * A reconciliation on day D covers everything up to the end of D, so anything dated
- * on/before the anchor is already "inside" the real amount and is ignored.
+ * A reconciliation on day D covers what had happened when it was saved. A movement
+ * counts if it is dated after D, or dated D and logged (createdAt) after the
+ * reconciliation was saved. Backdated entries are already "inside" the real amount.
  * Future-dated movements (after asOf) are never counted.
  */
 @Injectable()
@@ -69,6 +72,7 @@ export class BalanceService {
     return {
       reconciliationId: item.reconciliationId,
       date: item.reconciliation.date,
+      createdAt: item.reconciliation.createdAt,
       realAmount: Number(item.realAmount),
       difference: Number(item.difference),
     };
@@ -81,20 +85,18 @@ export class BalanceService {
     const anchor = await this.getAnchor({ accountId: account.id }, asOf);
     const base = anchor ? anchor.realAmount : Number(account.initialBalance);
 
-    const dateRange: Record<symbol, Date> = { [Op.lte]: endOfDay(asOf) };
-    if (anchor) dateRange[Op.gt] = endOfDay(anchor.date);
+    const totals = await this.sumByType({
+      accountId: account.id,
+      ...this.movementsAfter(anchor, asOf),
+    });
 
-    const totals = await this.sumByType({ accountId: account.id, date: dateRange });
-
-    const transferDateRange: Record<symbol, string> = { [Op.lte]: asOf };
-    if (anchor) transferDateRange[Op.gt] = anchor.date;
-
+    const transferRange = this.transfersAfter(anchor, asOf);
     const [transfersIn, transfersOut] = await Promise.all([
       AccountTransfer.sum('amount', {
-        where: { toAccountId: account.id, date: transferDateRange },
+        where: { toAccountId: account.id, ...transferRange },
       }),
       AccountTransfer.sum('amount', {
-        where: { fromAccountId: account.id, date: transferDateRange },
+        where: { fromAccountId: account.id, ...transferRange },
       }),
     ]);
 
@@ -114,10 +116,7 @@ export class BalanceService {
     const anchor = await this.getAnchor({ cardId: card.id }, asOf);
     const base = anchor ? anchor.realAmount : 0;
 
-    const dateRange: Record<symbol, Date> = { [Op.lte]: endOfDay(asOf) };
-    if (anchor) dateRange[Op.gt] = endOfDay(anchor.date);
-
-    const totals = await this.sumByType({ cardId: card.id, date: dateRange });
+    const totals = await this.sumByType({ cardId: card.id, ...this.movementsAfter(anchor, asOf) });
     const currentDebt = round2(
       base + totals[TransactionType.CARD_PURCHASE] - totals[TransactionType.CARD_PAYMENT],
     );
@@ -137,6 +136,31 @@ export class BalanceService {
       msiPending,
       totalDebt: round2(currentDebt + msiPending),
       anchor,
+    };
+  }
+
+  /** Transaction filter: dated in (anchor day, asOf], or on the anchor day but logged after it. */
+  private movementsAfter(anchor: BalanceAnchor | null, asOf: string): Record<string | symbol, unknown> {
+    if (!anchor) return { date: { [Op.lte]: endOfDay(asOf) } };
+    return {
+      [Op.or]: [
+        { date: { [Op.gt]: endOfDay(anchor.date), [Op.lte]: endOfDay(asOf) } },
+        {
+          date: { [Op.gte]: startOfDay(anchor.date), [Op.lte]: endOfDay(anchor.date) },
+          createdAt: { [Op.gt]: anchor.createdAt },
+        },
+      ],
+    };
+  }
+
+  /** Same rule for transfers, whose `date` is DATEONLY. */
+  private transfersAfter(anchor: BalanceAnchor | null, asOf: string): Record<string | symbol, unknown> {
+    if (!anchor) return { date: { [Op.lte]: asOf } };
+    return {
+      [Op.or]: [
+        { date: { [Op.gt]: anchor.date, [Op.lte]: asOf } },
+        { date: anchor.date, createdAt: { [Op.gt]: anchor.createdAt } },
+      ],
     };
   }
 
